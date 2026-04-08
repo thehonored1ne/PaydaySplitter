@@ -61,8 +61,8 @@ function App() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white neo-card p-6">
           <div className="space-y-4">
             <div>
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-black/50 italic">View Mode</h4>
-              <p className="text-[8px] font-bold text-black/40 uppercase tracking-tighter">Adjust numbers for your pay cycle</p>
+              <h4 className="text-[12px] font-black uppercase tracking-widest text-black/50 italic">View Mode</h4>
+              <p className="text-[12px] font-bold text-black/60 uppercase tracking-tighter">Adjust numbers for your pay cycle</p>
             </div>
             <div className="flex p-1 bg-slate-100 neo-border gap-1 w-fit">
               <button 
