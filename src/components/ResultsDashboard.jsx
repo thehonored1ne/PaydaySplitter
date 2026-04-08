@@ -1,32 +1,46 @@
-import { Heart, ShoppingCart, TrendingUp, ShieldCheck, ShieldAlert, PieChart as PieIcon, Download, PlusCircle, AlertCircle } from 'lucide-react';
+import { Heart, ShoppingCart, TrendingUp, ShieldCheck, ShieldAlert, PieChart as PieIcon, Download, PlusCircle, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import BreakdownCard from './BreakdownCard';
 import BudgetDonut from './BudgetDonut';
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import * as htmlToImage from 'html-to-image';
 import { calculateBIRTax } from '../utils/financeUtils';
 
 const ResultsDashboard = ({ data, isSemiMonthly }) => {
   const dashboardRef = useRef(null);
+  const [exportStatus, setExportStatus] = useState('idle'); // idle | exporting | success | error
 
   const factor = isSemiMonthly ? 0.5 : 1;
   const viewLabel = isSemiMonthly ? "Half Month Breakdown" : "Full Month Breakdown";
 
+  // Auto-hide toast after success
+  useEffect(() => {
+    if (exportStatus === 'success' || exportStatus === 'error') {
+      const timer = setTimeout(() => setExportStatus('idle'), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [exportStatus]);
+
   const downloadImage = useCallback(() => {
     if (dashboardRef.current === null) return;
+    
+    setExportStatus('exporting');
 
     htmlToImage.toPng(dashboardRef.current, { 
         cacheBust: true, 
         backgroundColor: '#fafafa',
-        style: { transform: 'scale(1)', transformOrigin: 'top left' }
+        style: { transform: 'scale(1)', transformOrigin: 'top left' },
+        pixelRatio: 2 // High quality
     })
       .then((dataUrl) => {
         const link = document.createElement('a');
         link.download = `payday-breakdown-${isSemiMonthly ? 'half' : 'full'}.png`;
         link.href = dataUrl;
         link.click();
+        setExportStatus('success');
       })
       .catch((err) => {
         console.error('Export failed:', err);
+        setExportStatus('error');
       });
   }, [dashboardRef, isSemiMonthly]);
 
@@ -41,11 +55,8 @@ const ResultsDashboard = ({ data, isSemiMonthly }) => {
     );
   }
 
-  // 13th Month Logic (Assuming Gross = Basic for this model)
   const thirteenthMonth = data.gross;
   const taxableThirteenth = Math.max(0, thirteenthMonth - 90000);
-  
-  // Calculate Marginal Tax Rate for 13th Month (Simplified to their bracket rate)
   const monthlyTax = calculateBIRTax(data.gross);
   const monthPlusOne = calculateBIRTax(data.gross + 1000);
   const marginalRate = (monthPlusOne - monthlyTax) / 1000;
@@ -54,6 +65,34 @@ const ResultsDashboard = ({ data, isSemiMonthly }) => {
 
   return (
     <div className="space-y-10">
+      {/* Feedback Toast */}
+      {exportStatus !== 'idle' && (
+        <div className="fixed top-6 right-6 z-[9999] animate-in fade-in slide-in-from-right-10 duration-300">
+          <div className={`neo-border neo-shadow p-4 flex items-center gap-3 min-w-[280px] ${
+            exportStatus === 'success' ? 'bg-[#00e699] text-black' : 
+            exportStatus === 'exporting' ? 'bg-[#fbe334] text-black' : 
+            'bg-[#ff4d4d] text-white'
+          }`}>
+            {exportStatus === 'exporting' && <Loader2 className="animate-spin" size={20} />}
+            {exportStatus === 'success' && <CheckCircle2 size={20} />}
+            {exportStatus === 'error' && <AlertCircle size={20} />}
+            
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase tracking-widest leading-tight">
+                {exportStatus === 'exporting' && 'Capturing Image...'}
+                {exportStatus === 'success' && 'Export Successful!'}
+                {exportStatus === 'error' && 'Export Failed'}
+              </span>
+              <span className="text-[8px] font-bold uppercase opacity-60">
+                {exportStatus === 'exporting' && 'Optimizing assets for HD'}
+                {exportStatus === 'success' && 'Check your downloads folder'}
+                {exportStatus === 'error' && 'Try again in a few seconds'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* View Switcher Info */}
       <div className="flex justify-between items-center bg-white neo-card p-4">
         <div className="flex items-center gap-3">
@@ -62,10 +101,11 @@ const ResultsDashboard = ({ data, isSemiMonthly }) => {
         </div>
         <button 
           onClick={downloadImage}
-          className="neo-button bg-white text-[10px] py-1 px-4"
+          disabled={exportStatus === 'exporting'}
+          className={`neo-button bg-white text-[10px] py-1 px-4 ${exportStatus === 'exporting' ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <Download size={14} />
-          Export Image
+          {exportStatus === 'exporting' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          {exportStatus === 'exporting' ? 'Processing...' : 'Export Image'}
         </button>
       </div>
 
@@ -126,7 +166,6 @@ const ResultsDashboard = ({ data, isSemiMonthly }) => {
           })}
         </div>
 
-        {/* Disclaimer for Estimated SSS */}
         <div className="flex items-center gap-2 p-2 bg-slate-50 border border-black/10">
             <AlertCircle size={10} className="text-black/40" />
             <p className="text-[9px] font-bold text-black/50 uppercase tracking-widest">
@@ -149,14 +188,12 @@ const ResultsDashboard = ({ data, isSemiMonthly }) => {
           {/* Divider Line */}
           <div className="border-t-2 md:border-t-4 border-black w-full mb-4"></div>
           
-          {/* Breakdown Title */}
           <div className="flex justify-center mb-6">
             <span className="text-[8px] md:text-[10px] font-black uppercase bg-black text-[#fbe334] px-3 py-1 tracking-[0.2em]">
                 {isSemiMonthly ? 'Payday Cut' : 'Full Month Cuts'}
             </span>
           </div>
           
-          {/* Breakdown of Deductions */}
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-x-4 md:gap-x-12 gap-y-6 md:gap-y-8">
               {(data.breakdown || []).map((item, index) => {
                   const isTax = item.label.toLowerCase().includes('tax');
