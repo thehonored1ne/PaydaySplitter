@@ -12,7 +12,7 @@ export const calculateBIRTax = (taxableIncome) => {
 
 export const getSmartDeduction = (label, gross) => {
     const cleanLabel = label.toLowerCase();
-    
+
     if (cleanLabel.includes('sss')) {
         // Official 2025 SSS Table Logic
         // MSC floor (5,000) and ceiling (30,000). Brackets are 500 wide.
@@ -28,55 +28,55 @@ export const getSmartDeduction = (label, gross) => {
         // EE Share is 4.5% of MSC
         return msc * 0.045;
     }
-    
+
     if (cleanLabel.includes('philhealth') || cleanLabel.includes('ph')) {
         // 2025: 5% Total Rate, 2.5% Employee Share (Min 10k, Max 100k)
         const basis = Math.min(100000, Math.max(10000, gross));
         return basis * 0.025;
     }
-    
+
     if (cleanLabel.includes('pagibig') || cleanLabel.includes('pi') || cleanLabel.includes('pag-ibig')) {
         // 2024/2025 Table: 2% of Salary Basis (max 10,000 basis = ₱200 EE share)
         return Math.min(10000, gross) * 0.02;
     }
-    
+
     return 0;
 };
 
 export const calculateNetPay = (gross, splits = [], deductions = []) => {
-  // 1. Calculate Statutory Cuts First
-  const breakdown = deductions.map(d => ({
-    label: d.label,
-    amount: d.isSmart ? getSmartDeduction(d.label, gross) : (d.isPercentage ? (gross * (d.rate / 100)) : d.rate),
-    isSmart: d.isSmart
-  }));
+    // 1. Calculate Statutory Cuts First
+    const breakdown = deductions.map(d => ({
+        label: d.label,
+        amount: d.isSmart ? getSmartDeduction(d.label, gross) : (d.isPercentage ? (gross * (d.rate / 100)) : d.rate),
+        isSmart: d.isSmart
+    }));
 
-  const totalStatutory = breakdown.reduce((acc, curr) => acc + curr.amount, 0);
-  
-  // 2. Define Taxable Income (Standard PH Rule: Gross - Statutory Contributions)
-  // Most companies subtract SSS/PH/PI from the gross BEFORE calculating BIR tax.
-  const taxableIncome = Math.max(0, gross - totalStatutory);
-  const incomeTax = calculateBIRTax(taxableIncome);
+    const totalStatutory = breakdown.reduce((acc, curr) => acc + curr.amount, 0);
 
-  // 3. Final Net
-  const net = Math.max(0, gross - totalStatutory - incomeTax);
+    // 2. Define Taxable Income (Standard PH Rule: Gross - Statutory Contributions)
+    // Most companies subtract SSS/PH/PI from the gross BEFORE calculating BIR tax.
+    const taxableIncome = Math.max(0, gross - totalStatutory);
+    const incomeTax = calculateBIRTax(taxableIncome);
 
-  const calculatedSplits = splits.map(s => ({
-    ...s,
-    amount: net * (s.rate / 100)
-  }));
+    // 3. Final Net
+    const net = Math.max(0, gross - totalStatutory - incomeTax);
 
-  const fullBreakdown = [
-    ...breakdown,
-    { label: 'Income Tax', amount: incomeTax, isSmart: true }
-  ];
+    const calculatedSplits = splits.map(s => ({
+        ...s,
+        amount: net * (s.rate / 100)
+    }));
 
-  return {
-    gross,
-    net,
-    incomeTax,
-    totalDeductions: totalStatutory + incomeTax,
-    breakdown: fullBreakdown,
-    splits: calculatedSplits
-  };
+    const fullBreakdown = [
+        ...breakdown,
+        { label: 'Income Tax', amount: incomeTax, isSmart: true }
+    ];
+
+    return {
+        gross,
+        net,
+        incomeTax,
+        totalDeductions: totalStatutory + incomeTax,
+        breakdown: fullBreakdown,
+        splits: calculatedSplits
+    };
 };
